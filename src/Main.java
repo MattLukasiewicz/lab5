@@ -11,9 +11,10 @@ class ImageLoaderApp extends JFrame {
     private DrawPanel drawPanel;
     private JLabel positionLabel;
     private JLabel colorLabel;
-    private JLabel modeLabel; // Komunikat o trybie kadrowania
-    private Zaznaczenie currentZaznaczenie;
-    private boolean cropMode = false; // Flaga trybu kadrowania
+    private JLabel modeLabel;
+    private boolean cropMode = false;
+    private boolean lineCropMode = false; // Flaga trybu kadrowania liniami
+    private Rectangle currentSelection; // Prostokąt do kadrowania
 
     public ImageLoaderApp() {
         setTitle("Image Loader");
@@ -40,9 +41,10 @@ class ImageLoaderApp extends JFrame {
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_W -> openFileChooser();
                     case KeyEvent.VK_Q -> confirmAndExit();
-                    case KeyEvent.VK_Z -> saveSelection();
                     case KeyEvent.VK_C -> disableCropMode();
                     case KeyEvent.VK_K -> enableCropMode();
+                    case KeyEvent.VK_L -> enableLineCropMode();
+                    case KeyEvent.VK_Z -> saveSelection();
                 }
             }
         });
@@ -53,42 +55,70 @@ class ImageLoaderApp extends JFrame {
     private void enableCropMode() {
         if (loadedImage != null) {
             cropMode = true;
-            modeLabel.setText("Tryb kadrowania włączony");
+            lineCropMode = false;
+            modeLabel.setText("Tryb kadrowania (zaznaczenie prostokątem)");
         } else {
-            JOptionPane.showMessageDialog(this, "Brak załadowanego obrazu! Nie można włączyć trybu kadrowania.", "Błąd", JOptionPane.WARNING_MESSAGE);
+            showNoImageError();
+        }
+    }
+
+    private void enableLineCropMode() {
+        if (loadedImage != null) {
+            lineCropMode = true;
+            cropMode = false;
+            modeLabel.setText("Tryb kadrowania (cztery linie)");
+            drawPanel.initializeLines();
+        } else {
+            showNoImageError();
         }
     }
 
     private void disableCropMode() {
         cropMode = false;
-        currentZaznaczenie = null;
+        lineCropMode = false;
         modeLabel.setText("Tryb kadrowania wyłączony");
-        drawPanel.repaint();
+        drawPanel.clearSelection();
+        currentSelection = null;
     }
 
     private void confirmAndExit() {
-        if (currentZaznaczenie != null) {
-            int result = JOptionPane.showConfirmDialog(this, "Czy zapisać zaznaczenie przed wyjściem?", "Wyjście",
-                    JOptionPane.YES_NO_CANCEL_OPTION);
-            if (result == JOptionPane.YES_OPTION) {
-                saveSelection();
-            } else if (result == JOptionPane.CANCEL_OPTION) {
-                return;
+        int result = JOptionPane.showConfirmDialog(this, "Czy na pewno chcesz wyjść?", "Wyjście",
+                JOptionPane.YES_NO_OPTION);
+        if (result == JOptionPane.YES_OPTION) {
+            System.exit(0);
+        }
+    }
+
+    private void openFileChooser() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Wybierz obrazek");
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                loadedImage = ImageIO.read(selectedFile);
+                drawPanel.setImage(loadedImage);
+                disableCropMode();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Nie można wczytać pliku", "Błąd", JOptionPane.ERROR_MESSAGE);
             }
         }
-        System.exit(0);
     }
 
     private void saveSelection() {
-        if (currentZaznaczenie != null && loadedImage != null) {
+        if (lineCropMode) {
+            currentSelection = drawPanel.getLineSelection();
+        }
+
+        if (currentSelection != null && loadedImage != null) {
             try {
-                int x = currentZaznaczenie.getX();
-                int y = currentZaznaczenie.getY();
-                int width = currentZaznaczenie.getWidth();
-                int height = currentZaznaczenie.getHeight();
+                int x = currentSelection.x - drawPanel.offsetX;
+                int y = currentSelection.y - drawPanel.offsetY;
+                int width = currentSelection.width;
+                int height = currentSelection.height;
 
                 if (x < 0 || y < 0 || x + width > loadedImage.getWidth() || y + height > loadedImage.getHeight()) {
-                    JOptionPane.showMessageDialog(this, "Zaznaczenie wykracza poza obszar obrazu! Nie można zapisać.", "Błąd zapisu", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Zaznaczenie wykracza poza obszar obrazu!", "Błąd", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
@@ -104,12 +134,16 @@ class ImageLoaderApp extends JFrame {
         }
     }
 
+    private void showNoImageError() {
+        JOptionPane.showMessageDialog(this, "Brak załadowanego obrazu!", "Błąd", JOptionPane.WARNING_MESSAGE);
+    }
+
     private JPanel createInfoPanel() {
         JPanel infoPanel = new JPanel();
         infoPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
         infoPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.GRAY),
-                "Informacje o kursore i kolorze",
+                "Informacje o kursore i trybie",
                 TitledBorder.LEFT,
                 TitledBorder.TOP));
 
@@ -136,7 +170,8 @@ class ImageLoaderApp extends JFrame {
                 TitledBorder.TOP));
 
         shortcutsPanel.add(new JLabel("W - Wczytaj obraz"));
-        shortcutsPanel.add(new JLabel("K - Włącz tryb kadrowania"));
+        shortcutsPanel.add(new JLabel("K - Tryb kadrowania (prostokąt)"));
+        shortcutsPanel.add(new JLabel("L - Tryb kadrowania (linie)"));
         shortcutsPanel.add(new JLabel("C - Wyłącz tryb kadrowania"));
         shortcutsPanel.add(new JLabel("Z - Zapisz zaznaczenie"));
         shortcutsPanel.add(new JLabel("Q - Wyjście"));
@@ -151,13 +186,21 @@ class ImageLoaderApp extends JFrame {
         loadMenuItem.addActionListener(e -> openFileChooser());
         popupMenu.add(loadMenuItem);
 
-        JMenuItem cropModeMenuItem = new JMenuItem("Włącz tryb kadrowania (K)");
+        JMenuItem cropModeMenuItem = new JMenuItem("Tryb kadrowania (prostokąt) (K)");
         cropModeMenuItem.addActionListener(e -> enableCropMode());
         popupMenu.add(cropModeMenuItem);
 
-        JMenuItem clearSelectionMenuItem = new JMenuItem("Wyłącz tryb kadrowania (C)");
-        clearSelectionMenuItem.addActionListener(e -> disableCropMode());
-        popupMenu.add(clearSelectionMenuItem);
+        JMenuItem lineCropModeMenuItem = new JMenuItem("Tryb kadrowania (linie) (L)");
+        lineCropModeMenuItem.addActionListener(e -> enableLineCropMode());
+        popupMenu.add(lineCropModeMenuItem);
+
+        JMenuItem disableCropMenuItem = new JMenuItem("Wyłącz tryb kadrowania (C)");
+        disableCropMenuItem.addActionListener(e -> disableCropMode());
+        popupMenu.add(disableCropMenuItem);
+
+        JMenuItem saveSelectionMenuItem = new JMenuItem("Zapisz zaznaczenie (Z)");
+        saveSelectionMenuItem.addActionListener(e -> saveSelection());
+        popupMenu.add(saveSelectionMenuItem);
 
         JMenuItem exitMenuItem = new JMenuItem("Wyjście (Q)");
         exitMenuItem.addActionListener(e -> confirmAndExit());
@@ -166,90 +209,104 @@ class ImageLoaderApp extends JFrame {
         return popupMenu;
     }
 
-    private void openFileChooser() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Wybierz obrazek");
-        int result = fileChooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            try {
-                loadedImage = ImageIO.read(selectedFile);
-                drawPanel.setImage(loadedImage);
-                disableCropMode(); // Reset trybu kadrowania po załadowaniu nowego obrazu
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Nie można wczytać pliku", "Błąd", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
     private class DrawPanel extends JPanel {
         private BufferedImage image;
-        private Point startPoint;
         private int offsetX, offsetY;
+        private Point startPoint, currentPoint;
+        private Rectangle horizontalLine1, horizontalLine2, verticalLine1, verticalLine2;
+        private boolean draggingLine;
+        private Rectangle draggedLine;
 
         public DrawPanel() {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
-                    if (!cropMode) {
-                        return;
-                    }
-
-                    if (startPoint == null) {
-                        if (!isPointInsideImage(e.getPoint())) {
-                            JOptionPane.showMessageDialog(
-                                    DrawPanel.this,
-                                    "Nie można rozpocząć zaznaczenia poza obszarem obrazu!",
-                                    "Błąd zaznaczenia",
-                                    JOptionPane.WARNING_MESSAGE
-                            );
-                            return;
-                        }
+                    if (cropMode) {
                         startPoint = e.getPoint();
-                    } else {
-                        if (!isPointInsideImage(e.getPoint())) {
-                            JOptionPane.showMessageDialog(
-                                    DrawPanel.this,
-                                    "Nie można zakończyć zaznaczenia poza obszarem obrazu!",
-                                    "Błąd zaznaczenia",
-                                    JOptionPane.WARNING_MESSAGE
-                            );
-                            startPoint = null;
-                            return;
+                        currentSelection = null;
+                    } else if (lineCropMode) {
+                        draggingLine = false;
+                        for (Rectangle line : new Rectangle[]{horizontalLine1, horizontalLine2, verticalLine1, verticalLine2}) {
+                            if (line != null && line.contains(e.getPoint())) {
+                                draggingLine = true;
+                                draggedLine = line;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent e) {
+                    draggingLine = false;
+                    startPoint = null;
+                }
+            });
+
+            addMouseMotionListener(new MouseMotionAdapter() {
+                @Override
+                public void mouseDragged(MouseEvent e) {
+                    if (cropMode && startPoint != null) {
+                        currentPoint = e.getPoint();
+
+                        // Ograniczenie prostokąta do obszaru obrazu
+                        int x1 = Math.max(offsetX, Math.min(startPoint.x, currentPoint.x));
+                        int y1 = Math.max(offsetY, Math.min(startPoint.y, currentPoint.y));
+                        int x2 = Math.min(offsetX + image.getWidth(), Math.max(startPoint.x, currentPoint.x));
+                        int y2 = Math.min(offsetY + image.getHeight(), Math.max(startPoint.y, currentPoint.y));
+
+                        currentSelection = new Rectangle(x1, y1, x2 - x1, y2 - y1);
+                        repaint();
+                    } else if (lineCropMode && draggingLine) {
+                        int dx = e.getX() - draggedLine.x;
+                        int dy = e.getY() - draggedLine.y;
+
+                        if (draggedLine == horizontalLine1) {
+                            horizontalLine1.y = Math.max(offsetY, Math.min(horizontalLine2.y - 10, horizontalLine1.y + dy));
+                        } else if (draggedLine == horizontalLine2) {
+                            horizontalLine2.y = Math.max(horizontalLine1.y + 10, Math.min(offsetY + image.getHeight(), horizontalLine2.y + dy));
+                        } else if (draggedLine == verticalLine1) {
+                            verticalLine1.x = Math.max(offsetX, Math.min(verticalLine2.x - 10, verticalLine1.x + dx));
+                        } else if (draggedLine == verticalLine2) {
+                            verticalLine2.x = Math.max(verticalLine1.x + 10, Math.min(offsetX + image.getWidth(), verticalLine2.x + dx));
                         }
 
-                        int x1 = startPoint.x - offsetX;
-                        int y1 = startPoint.y - offsetY;
-                        int x2 = e.getX() - offsetX;
-                        int y2 = e.getY() - offsetY;
-
-                        int imageX1 = Math.max(0, x1);
-                        int imageY1 = Math.max(0, y1);
-                        int imageX2 = Math.max(0, x2);
-                        int imageY2 = Math.max(0, y2);
-
-                        currentZaznaczenie = new Zaznaczenie(
-                                Math.min(imageX1, imageX2),
-                                Math.min(imageY1, imageY2),
-                                Math.abs(imageX2 - imageX1),
-                                Math.abs(imageY2 - imageY1)
-                        );
-
-                        startPoint = null;
                         repaint();
                     }
                 }
             });
         }
 
-        private boolean isPointInsideImage(Point point) {
-            if (image == null) return false;
+        public void initializeLines() {
+            if (image != null) {
+                int width = image.getWidth();
+                int height = image.getHeight();
+                horizontalLine1 = new Rectangle(offsetX, offsetY + height / 4, width, 5);
+                horizontalLine2 = new Rectangle(offsetX, offsetY + 3 * height / 4, width, 5);
+                verticalLine1 = new Rectangle(offsetX + width / 4, offsetY, 5, height);
+                verticalLine2 = new Rectangle(offsetX + 3 * width / 4, offsetY, 5, height);
+                repaint();
+            }
+        }
 
-            int x = point.x;
-            int y = point.y;
+        public Rectangle getLineSelection() {
+            if (horizontalLine1 != null && horizontalLine2 != null && verticalLine1 != null && verticalLine2 != null) {
+                int x = verticalLine1.x;
+                int y = horizontalLine1.y;
+                int width = verticalLine2.x - verticalLine1.x;
+                int height = horizontalLine2.y - horizontalLine1.y;
+                return new Rectangle(x, y, width, height);
+            }
+            return null;
+        }
 
-            return x >= offsetX && x < offsetX + image.getWidth() &&
-                    y >= offsetY && y < offsetY + image.getHeight();
+        public void clearSelection() {
+            currentSelection = null;
+            horizontalLine1 = null;
+            horizontalLine2 = null;
+            verticalLine1 = null;
+            verticalLine2 = null;
+            repaint();
         }
 
         public void setImage(BufferedImage image) {
@@ -265,44 +322,27 @@ class ImageLoaderApp extends JFrame {
                 offsetY = (getHeight() - image.getHeight()) / 2;
                 g.drawImage(image, offsetX, offsetY, this);
 
-                if (currentZaznaczenie != null) {
+                if (cropMode && currentSelection != null) {
                     g.setColor(Color.RED);
-                    g.drawRect(
-                            currentZaznaczenie.getX() + offsetX,
-                            currentZaznaczenie.getY() + offsetY,
-                            currentZaznaczenie.getWidth(),
-                            currentZaznaczenie.getHeight()
-                    );
+                    g.drawRect(currentSelection.x, currentSelection.y, currentSelection.width, currentSelection.height);
+                }
+
+                if (lineCropMode) {
+                    g.setColor(Color.RED);
+                    if (horizontalLine1 != null) {
+                        g.fillRect(horizontalLine1.x, horizontalLine1.y, horizontalLine1.width, horizontalLine1.height);
+                    }
+                    if (horizontalLine2 != null) {
+                        g.fillRect(horizontalLine2.x, horizontalLine2.y, horizontalLine2.width, horizontalLine2.height);
+                    }
+                    if (verticalLine1 != null) {
+                        g.fillRect(verticalLine1.x, verticalLine1.y, verticalLine1.width, verticalLine1.height);
+                    }
+                    if (verticalLine2 != null) {
+                        g.fillRect(verticalLine2.x, verticalLine2.y, verticalLine2.width, verticalLine2.height);
+                    }
                 }
             }
-        }
-    }
-
-
-    private class Zaznaczenie {
-        private int x, y, width, height;
-
-        public Zaznaczenie(int x, int y, int width, int height) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-        }
-
-        public int getX() {
-            return x;
-        }
-
-        public int getY() {
-            return y;
-        }
-
-        public int getWidth() {
-            return width;
-        }
-
-        public int getHeight() {
-            return height;
         }
     }
 
