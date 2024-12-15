@@ -28,48 +28,50 @@ class ImageLoaderApp extends JFrame {
         JPanel infoPanel = createInfoPanel();
         add(infoPanel, BorderLayout.SOUTH);
 
-        // Dodanie obsługi klawiatury (klawisz W)
+        // Tworzenie panelu skrótów klawiaturowych
+        JPanel shortcutsPanel = createShortcutsPanel();
+        add(shortcutsPanel, BorderLayout.EAST);
+
+        // Dodanie menu podręcznego (JPopupMenu)
+        JPopupMenu popupMenu = createPopupMenu();
+        drawPanel.setComponentPopupMenu(popupMenu);
+
+        // Dodanie obsługi klawiatury
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_W) {
                     openFileChooser();
+                } else if (e.getKeyCode() == KeyEvent.VK_Q) {
+                    System.exit(0);
                 }
             }
         });
 
-        // Dodanie menu podręcznego (JPopupMenu)
-        JPopupMenu popupMenu = new JPopupMenu();
-        JMenuItem loadMenuItem = new JMenuItem("Wczytaj");
-        loadMenuItem.addActionListener(e -> openFileChooser());
-        popupMenu.add(loadMenuItem);
-
-        // Powiązanie menu podręcznego z panelem
-        drawPanel.setComponentPopupMenu(popupMenu);
-
         setVisible(true);
     }
 
-    // Metoda do otwierania JFileChooser i wczytywania obrazka
-    private void openFileChooser() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Wybierz obrazek");
-        int result = fileChooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            try {
-                loadedImage = ImageIO.read(selectedFile);
-                drawPanel.setImage(loadedImage);
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Nie można wczytać pliku", "Błąd", JOptionPane.ERROR_MESSAGE);
-            }
-        }
+    // Tworzenie menu podręcznego
+    private JPopupMenu createPopupMenu() {
+        JPopupMenu popupMenu = new JPopupMenu();
+
+        // Opcja "Wczytaj obraz"
+        JMenuItem loadMenuItem = new JMenuItem("Wczytaj obraz (W)");
+        loadMenuItem.addActionListener(e -> openFileChooser());
+        popupMenu.add(loadMenuItem);
+
+        // Opcja "Wyjście"
+        JMenuItem exitMenuItem = new JMenuItem("Wyjście (Q)");
+        exitMenuItem.addActionListener(e -> System.exit(0));
+        popupMenu.add(exitMenuItem);
+
+        return popupMenu;
     }
 
     // Tworzenie panelu informacji o pozycji i kolorze
     private JPanel createInfoPanel() {
         JPanel infoPanel = new JPanel();
-        infoPanel.setLayout(new FlowLayout(FlowLayout.LEFT)); // Układ w jednym rzędzie
+        infoPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
         infoPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.GRAY),
                 "Informacje o kursore i kolorze",
@@ -92,12 +94,51 @@ class ImageLoaderApp extends JFrame {
         return infoPanel;
     }
 
+    // Tworzenie panelu skrótów klawiaturowych
+    private JPanel createShortcutsPanel() {
+        JPanel shortcutsPanel = new JPanel();
+        shortcutsPanel.setLayout(new BoxLayout(shortcutsPanel, BoxLayout.Y_AXIS));
+        shortcutsPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(Color.GRAY),
+                "Skróty klawiaturowe",
+                TitledBorder.LEFT,
+                TitledBorder.TOP));
+
+        // Dodanie opisów skrótów
+        JLabel shortcut1 = new JLabel("W - Wczytaj obraz");
+        JLabel shortcut2 = new JLabel("Q - Wyjście");
+
+        shortcut1.setAlignmentX(Component.LEFT_ALIGNMENT);
+        shortcut2.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        shortcutsPanel.add(shortcut1);
+        shortcutsPanel.add(Box.createRigidArea(new Dimension(0, 5))); // Odstęp
+        shortcutsPanel.add(shortcut2);
+
+        return shortcutsPanel;
+    }
+
+    // Metoda do otwierania JFileChooser i wczytywania obrazka
+    private void openFileChooser() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Wybierz obrazek");
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                loadedImage = ImageIO.read(selectedFile);
+                drawPanel.setImage(loadedImage);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Nie można wczytać pliku", "Błąd", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
     // Panel do wyświetlania obrazka
     private class DrawPanel extends JPanel {
         private BufferedImage image;
 
         public DrawPanel() {
-            // Obsługa ruchu myszy na panelu
             addMouseMotionListener(new MouseMotionAdapter() {
                 @Override
                 public void mouseMoved(MouseEvent e) {
@@ -115,7 +156,6 @@ class ImageLoaderApp extends JFrame {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             if (image != null) {
-                // Wyśrodkowanie obrazka na panelu
                 int x = (getWidth() - image.getWidth()) / 2;
                 int y = (getHeight() - image.getHeight()) / 2;
                 g.drawImage(image, x, y, this);
@@ -128,11 +168,9 @@ class ImageLoaderApp extends JFrame {
             positionLabel.setText(String.format("Pozycja: (x: %d, y: %d)", x, y));
 
             if (image != null) {
-                // Wyśrodkowanie obrazka
                 int offsetX = (getWidth() - image.getWidth()) / 2;
                 int offsetY = (getHeight() - image.getHeight()) / 2;
 
-                // Sprawdzenie, czy kursor znajduje się na obrazku
                 int imageX = x - offsetX;
                 int imageY = y - offsetY;
 
