@@ -1,103 +1,85 @@
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.LayoutManager;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
+import javax.imageio.ImageIO;
 
-import javax.swing.JButton;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.filechooser.FileFilter;
+class ImageLoaderApp extends JFrame {
+    private BufferedImage loadedImage; // Obrazek do wyświetlenia
+    private DrawPanel drawPanel;      // Panel do rysowania
 
-class SwingTester {
-    public static void main(String[] args) {
-        createWindow();
-    }
+    public ImageLoaderApp() {
+        // Ustawienia okna
+        setTitle("Image Loader");
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
 
-    private static void createWindow() {
-        JFrame frame = new JFrame("Swing Tester");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        createUI(frame);
-        frame.setSize(560, 200);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
-    }
+        // Tworzenie panelu głównego
+        drawPanel = new DrawPanel();
+        add(drawPanel);
 
-    private static void createUI(final JFrame frame){
-        JPanel panel = new JPanel();
-        LayoutManager layout = new FlowLayout();
-        panel.setLayout(layout);
-        JButton button = new JButton("Click Me!");
-        final JLabel label = new JLabel();
-        button.addActionListener(new ActionListener() {
+        // Dodanie obsługi klawiatury (klawisz W)
+        addKeyListener(new KeyAdapter() {
             @Override
-            public void actionPerformed(ActionEvent e) {
-                JFileChooser fileChooser = new JFileChooser();
-                fileChooser.addChoosableFileFilter(new ImageFilter());
-                fileChooser.setAcceptAllFileFilterUsed(false);
-
-                int option = fileChooser.showOpenDialog(frame);
-                if(option == JFileChooser.APPROVE_OPTION){
-                    File file = fileChooser.getSelectedFile();
-                    label.setText("File Selected: " + file.getName());
-                }else{
-                    label.setText("Open command canceled");
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_W) {
+                    openFileChooser();
                 }
             }
         });
 
-        panel.add(button);
-        panel.add(label);
-        frame.getContentPane().add(panel, BorderLayout.CENTER);
+        // Dodanie menu podręcznego (JPopupMenu)
+        JPopupMenu popupMenu = new JPopupMenu();
+        JMenuItem loadMenuItem = new JMenuItem("Wczytaj");
+        loadMenuItem.addActionListener(e -> openFileChooser());
+        popupMenu.add(loadMenuItem);
+
+        // Powiązanie menu podręcznego z panelem
+        drawPanel.setComponentPopupMenu(popupMenu);
+
+        setVisible(true);
     }
-}
 
-class ImageFilter extends FileFilter {
-    public final static String JPEG = "jpeg";
-    public final static String JPG = "jpg";
-    public final static String GIF = "gif";
-    public final static String TIFF = "tiff";
-    public final static String TIF = "tif";
-    public final static String PNG = "png";
-
-    @Override
-    public boolean accept(File f) {
-        if (f.isDirectory()) {
-            return true;
-        }
-
-        String extension = getExtension(f);
-        if (extension != null) {
-            if (extension.equals(TIFF) ||
-                    extension.equals(TIF) ||
-                    extension.equals(GIF) ||
-                    extension.equals(JPEG) ||
-                    extension.equals(JPG) ||
-                    extension.equals(PNG)) {
-                return true;
-            } else {
-                return false;
+    // Metoda do otwierania JFileChooser i wczytywania obrazka
+    private void openFileChooser() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Wybierz obrazek");
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                loadedImage = ImageIO.read(selectedFile);
+                drawPanel.setImage(loadedImage);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Nie można wczytać pliku", "Błąd", JOptionPane.ERROR_MESSAGE);
             }
         }
-        return false;
     }
 
-    @Override
-    public String getDescription() {
-        return "Image Only";
-    }
+    // Panel do wyświetlania obrazka
+    private static class DrawPanel extends JPanel {
+        private BufferedImage image;
 
-    String getExtension(File f) {
-        String ext = null;
-        String s = f.getName();
-        int i = s.lastIndexOf('.');
-
-        if (i > 0 &&  i < s.length() - 1) {
-            ext = s.substring(i+1).toLowerCase();
+        public void setImage(BufferedImage image) {
+            this.image = image;
+            repaint();
         }
-        return ext;
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (image != null) {
+                // Wyśrodkowanie obrazka na panelu
+                int x = (getWidth() - image.getWidth()) / 2;
+                int y = (getHeight() - image.getHeight()) / 2;
+                g.drawImage(image, x, y, this);
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(ImageLoaderApp::new);
     }
 }
