@@ -6,6 +6,40 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
 
+class Zaznaczenie {
+    private int x;
+    private int y;
+    private int width;
+    private int height;
+
+    public Zaznaczenie(int x, int y, int width, int height) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public Rectangle toRectangle() {
+        return new Rectangle(x, y, width, height);
+    }
+}
+
 class ImageLoaderApp extends JFrame {
     private BufferedImage loadedImage;
     private DrawPanel drawPanel;
@@ -14,7 +48,7 @@ class ImageLoaderApp extends JFrame {
     private JLabel modeLabel;
     private boolean cropMode = false;
     private boolean lineCropMode = false; // Flaga trybu kadrowania liniami
-    private Rectangle currentSelection; // Prostokąt do kadrowania
+    private Zaznaczenie currentSelection; // Zaznaczenie do kadrowania
 
     public ImageLoaderApp() {
         setTitle("Image Loader");
@@ -107,15 +141,21 @@ class ImageLoaderApp extends JFrame {
 
     private void saveSelection() {
         if (lineCropMode) {
-            currentSelection = drawPanel.getLineSelection();
+            Rectangle lineSelection = drawPanel.getLineSelection();
+            if (lineSelection != null) {
+                currentSelection = new Zaznaczenie(
+                        lineSelection.x, lineSelection.y,
+                        lineSelection.width, lineSelection.height
+                );
+            }
         }
 
         if (currentSelection != null && loadedImage != null) {
             try {
-                int x = currentSelection.x - drawPanel.offsetX;
-                int y = currentSelection.y - drawPanel.offsetY;
-                int width = currentSelection.width;
-                int height = currentSelection.height;
+                int x = currentSelection.getX() - drawPanel.offsetX;
+                int y = currentSelection.getY() - drawPanel.offsetY;
+                int width = currentSelection.getWidth();
+                int height = currentSelection.getHeight();
 
                 if (x < 0 || y < 0 || x + width > loadedImage.getWidth() || y + height > loadedImage.getHeight()) {
                     JOptionPane.showMessageDialog(this, "Zaznaczenie wykracza poza obszar obrazu!", "Błąd", JOptionPane.ERROR_MESSAGE);
@@ -221,7 +261,7 @@ class ImageLoaderApp extends JFrame {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
-                    if (image == null) return; // Nie wykonuj niczego, jeśli obrazek nie został załadowany.
+                    if (image == null) return;
 
                     Point clickPoint = e.getPoint();
                     boolean isInsideImage = clickPoint.x >= offsetX && clickPoint.x < offsetX + image.getWidth()
@@ -232,7 +272,7 @@ class ImageLoaderApp extends JFrame {
                             startPoint = clickPoint;
                             currentSelection = null;
                         } else {
-                            startPoint = null; // Ignoruj kliknięcia poza obrazem.
+                            startPoint = null;
                         }
                     } else if (lineCropMode) {
                         draggingLine = false;
@@ -245,7 +285,6 @@ class ImageLoaderApp extends JFrame {
                         }
                     }
                 }
-
 
                 @Override
                 public void mouseReleased(MouseEvent e) {
@@ -260,13 +299,12 @@ class ImageLoaderApp extends JFrame {
                     if (cropMode && startPoint != null) {
                         currentPoint = e.getPoint();
 
-                        // Ograniczenie prostokąta do obszaru obrazu
                         int x1 = Math.max(offsetX, Math.min(startPoint.x, currentPoint.x));
                         int y1 = Math.max(offsetY, Math.min(startPoint.y, currentPoint.y));
                         int x2 = Math.min(offsetX + image.getWidth(), Math.max(startPoint.x, currentPoint.x));
                         int y2 = Math.min(offsetY + image.getHeight(), Math.max(startPoint.y, currentPoint.y));
 
-                        currentSelection = new Rectangle(x1, y1, x2 - x1, y2 - y1);
+                        currentSelection = new Zaznaczenie(x1, y1, x2 - x1, y2 - y1);
                         repaint();
                     } else if (lineCropMode && draggingLine) {
                         int dx = e.getX() - draggedLine.x;
@@ -335,7 +373,8 @@ class ImageLoaderApp extends JFrame {
 
                 if (cropMode && currentSelection != null) {
                     g.setColor(Color.RED);
-                    g.drawRect(currentSelection.x, currentSelection.y, currentSelection.width, currentSelection.height);
+                    Rectangle rect = currentSelection.toRectangle();
+                    g.drawRect(rect.x, rect.y, rect.width, rect.height);
                 }
 
                 if (lineCropMode) {
@@ -360,4 +399,4 @@ class ImageLoaderApp extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ImageLoaderApp::new);
     }
-} 
+}
