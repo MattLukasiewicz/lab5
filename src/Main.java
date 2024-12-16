@@ -221,13 +221,23 @@ class ImageLoaderApp extends JFrame {
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
+                    if (image == null) return; // Nie wykonuj niczego, jeśli obrazek nie został załadowany.
+
+                    Point clickPoint = e.getPoint();
+                    boolean isInsideImage = clickPoint.x >= offsetX && clickPoint.x < offsetX + image.getWidth()
+                            && clickPoint.y >= offsetY && clickPoint.y < offsetY + image.getHeight();
+
                     if (cropMode) {
-                        startPoint = e.getPoint();
-                        currentSelection = null;
+                        if (isInsideImage) {
+                            startPoint = clickPoint;
+                            currentSelection = null;
+                        } else {
+                            startPoint = null; // Ignoruj kliknięcia poza obrazem.
+                        }
                     } else if (lineCropMode) {
                         draggingLine = false;
                         for (Rectangle line : new Rectangle[]{horizontalLine1, horizontalLine2, verticalLine1, verticalLine2}) {
-                            if (line != null && line.contains(e.getPoint())) {
+                            if (line != null && line.contains(clickPoint)) {
                                 draggingLine = true;
                                 draggedLine = line;
                                 break;
@@ -235,6 +245,7 @@ class ImageLoaderApp extends JFrame {
                         }
                     }
                 }
+
 
                 @Override
                 public void mouseReleased(MouseEvent e) {
@@ -349,4 +360,4 @@ class ImageLoaderApp extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ImageLoaderApp::new);
     }
-}
+} 
