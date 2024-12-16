@@ -73,15 +73,27 @@ class ImageLoaderApp extends JFrame {
             @Override
             public void keyPressed(KeyEvent e) {
                 switch (e.getKeyCode()) {
-                    case KeyEvent.VK_W -> openFileChooser();
-                    case KeyEvent.VK_Q -> confirmAndExit();
-                    case KeyEvent.VK_C -> disableCropMode();
-                    case KeyEvent.VK_K -> enableCropMode();
-                    case KeyEvent.VK_L -> enableLineCropMode();
-                    case KeyEvent.VK_Z -> saveSelection();
+                    case KeyEvent.VK_W -> openFileChooser(); // Wczytaj obraz
+                    case KeyEvent.VK_Q -> confirmAndExit(); // Wyjście
+                    case KeyEvent.VK_C -> disableCropMode(); // Wyłącz tryby kadrowania i usuń zaznaczenia
+                    case KeyEvent.VK_K -> {
+                        if (lineCropMode) { // Jeśli tryb liniowy jest aktywny, wyłącz go
+                            disableCropMode();
+                        }
+                        enableCropMode(); // Włącz tryb prostokątny
+                    }
+                    case KeyEvent.VK_L -> {
+                        if (cropMode) { // Jeśli tryb prostokątny jest aktywny, wyłącz go
+                            disableCropMode();
+                        }
+                        enableLineCropMode(); // Włącz tryb liniowy
+                    }
+                    case KeyEvent.VK_Z -> saveSelection(); // Zapisz zaznaczenie
                 }
             }
         });
+
+
 
         setVisible(true);
     }
@@ -152,10 +164,14 @@ class ImageLoaderApp extends JFrame {
 
         if (currentSelection != null && loadedImage != null) {
             try {
-                int x = currentSelection.getX() - drawPanel.offsetX;
-                int y = currentSelection.getY() - drawPanel.offsetY;
-                int width = currentSelection.getWidth();
-                int height = currentSelection.getHeight();
+                // Skalowanie zaznaczenia do oryginalnego rozmiaru obrazu
+                Rectangle scaledSelection = currentSelection.toRectangle();
+                Rectangle originalSelection = drawPanel.scaleToOriginal(scaledSelection);
+
+                int x = originalSelection.x;
+                int y = originalSelection.y;
+                int width = originalSelection.width;
+                int height = originalSelection.height;
 
                 if (x < 0 || y < 0 || x + width > loadedImage.getWidth() || y + height > loadedImage.getHeight()) {
                     JOptionPane.showMessageDialog(this, "Zaznaczenie wykracza poza obszar obrazu!", "Błąd", JOptionPane.ERROR_MESSAGE);
@@ -163,9 +179,25 @@ class ImageLoaderApp extends JFrame {
                 }
 
                 BufferedImage croppedImage = loadedImage.getSubimage(x, y, width, height);
-                File outputFile = new File("zaznaczenie.png");
-                ImageIO.write(croppedImage, "png", outputFile);
-                JOptionPane.showMessageDialog(this, "Zaznaczenie zapisane jako zaznaczenie.png");
+
+                // Tworzenie JFileChooser w trybie zapisu
+                JFileChooser fileChooser = new JFileChooser();
+                fileChooser.setDialogTitle("Zapisz zaznaczenie jako...");
+                fileChooser.setSelectedFile(new File("zaznaczenie.png")); // Domyślna nazwa pliku
+
+                int userSelection = fileChooser.showSaveDialog(this);
+                if (userSelection == JFileChooser.APPROVE_OPTION) {
+                    File fileToSave = fileChooser.getSelectedFile();
+
+                    // Dodanie rozszerzenia .png, jeśli brak
+                    if (!fileToSave.getName().toLowerCase().endsWith(".png")) {
+                        fileToSave = new File(fileToSave.getAbsolutePath() + ".png");
+                    }
+
+                    // Zapis obrazu
+                    ImageIO.write(croppedImage, "png", fileToSave);
+                    JOptionPane.showMessageDialog(this, "Zaznaczenie zapisane jako: " + fileToSave.getAbsolutePath());
+                }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Błąd podczas zapisywania zaznaczenia", "Błąd", JOptionPane.ERROR_MESSAGE);
             }
@@ -173,6 +205,8 @@ class ImageLoaderApp extends JFrame {
             JOptionPane.showMessageDialog(this, "Nie ma zaznaczenia do zapisania!", "Informacja", JOptionPane.INFORMATION_MESSAGE);
         }
     }
+
+
 
     private void showNoImageError() {
         JOptionPane.showMessageDialog(this, "Brak załadowanego obrazu!", "Błąd", JOptionPane.WARNING_MESSAGE);
@@ -252,10 +286,12 @@ class ImageLoaderApp extends JFrame {
     private class DrawPanel extends JPanel {
         private BufferedImage image;
         private int offsetX, offsetY;
+        private int scaledWidth, scaledHeight;
         private Point startPoint, currentPoint;
         private Rectangle horizontalLine1, horizontalLine2, verticalLine1, verticalLine2;
         private boolean draggingLine;
         private Rectangle draggedLine;
+        private final int margin = 10; // Stały margines wokół obrazu
 
         public DrawPanel() {
             addMouseListener(new MouseAdapter() {
@@ -264,8 +300,8 @@ class ImageLoaderApp extends JFrame {
                     if (image == null) return;
 
                     Point clickPoint = e.getPoint();
-                    boolean isInsideImage = clickPoint.x >= offsetX && clickPoint.x < offsetX + image.getWidth()
-                            && clickPoint.y >= offsetY && clickPoint.y < offsetY + image.getHeight();
+                    boolean isInsideImage = clickPoint.x >= offsetX && clickPoint.x < offsetX + scaledWidth
+                            && clickPoint.y >= offsetY && clickPoint.y < offsetY + scaledHeight;
 
                     if (cropMode) {
                         if (isInsideImage) {
@@ -301,8 +337,8 @@ class ImageLoaderApp extends JFrame {
 
                         int x1 = Math.max(offsetX, Math.min(startPoint.x, currentPoint.x));
                         int y1 = Math.max(offsetY, Math.min(startPoint.y, currentPoint.y));
-                        int x2 = Math.min(offsetX + image.getWidth(), Math.max(startPoint.x, currentPoint.x));
-                        int y2 = Math.min(offsetY + image.getHeight(), Math.max(startPoint.y, currentPoint.y));
+                        int x2 = Math.min(offsetX + scaledWidth, Math.max(startPoint.x, currentPoint.x));
+                        int y2 = Math.min(offsetY + scaledHeight, Math.max(startPoint.y, currentPoint.y));
 
                         currentSelection = new Zaznaczenie(x1, y1, x2 - x1, y2 - y1);
                         repaint();
@@ -313,11 +349,11 @@ class ImageLoaderApp extends JFrame {
                         if (draggedLine == horizontalLine1) {
                             horizontalLine1.y = Math.max(offsetY, Math.min(horizontalLine2.y - 10, horizontalLine1.y + dy));
                         } else if (draggedLine == horizontalLine2) {
-                            horizontalLine2.y = Math.max(horizontalLine1.y + 10, Math.min(offsetY + image.getHeight(), horizontalLine2.y + dy));
+                            horizontalLine2.y = Math.max(horizontalLine1.y + 10, Math.min(offsetY + scaledHeight, horizontalLine2.y + dy));
                         } else if (draggedLine == verticalLine1) {
                             verticalLine1.x = Math.max(offsetX, Math.min(verticalLine2.x - 10, verticalLine1.x + dx));
                         } else if (draggedLine == verticalLine2) {
-                            verticalLine2.x = Math.max(verticalLine1.x + 10, Math.min(offsetX + image.getWidth(), verticalLine2.x + dx));
+                            verticalLine2.x = Math.max(verticalLine1.x + 10, Math.min(offsetX + scaledWidth, verticalLine2.x + dx));
                         }
 
                         repaint();
@@ -328,14 +364,23 @@ class ImageLoaderApp extends JFrame {
 
         public void initializeLines() {
             if (image != null) {
-                int width = image.getWidth();
-                int height = image.getHeight();
-                horizontalLine1 = new Rectangle(offsetX, offsetY + height / 4, width, 5);
-                horizontalLine2 = new Rectangle(offsetX, offsetY + 3 * height / 4, width, 5);
-                verticalLine1 = new Rectangle(offsetX + width / 4, offsetY, 5, height);
-                verticalLine2 = new Rectangle(offsetX + 3 * width / 4, offsetY, 5, height);
+                horizontalLine1 = new Rectangle(offsetX, offsetY + scaledHeight / 4, scaledWidth, 5);
+                horizontalLine2 = new Rectangle(offsetX, offsetY + 3 * scaledHeight / 4, scaledWidth, 5);
+                verticalLine1 = new Rectangle(offsetX + scaledWidth / 4, offsetY, 5, scaledHeight);
+                verticalLine2 = new Rectangle(offsetX + 3 * scaledWidth / 4, offsetY, 5, scaledHeight);
                 repaint();
             }
+        }
+        private Rectangle scaleToOriginal(Rectangle scaledRect) {
+            double scaleX = (double) image.getWidth() / scaledWidth;
+            double scaleY = (double) image.getHeight() / scaledHeight;
+
+            int originalX = (int) ((scaledRect.x - offsetX) * scaleX);
+            int originalY = (int) ((scaledRect.y - offsetY) * scaleY);
+            int originalWidth = (int) (scaledRect.width * scaleX);
+            int originalHeight = (int) (scaledRect.height * scaleY);
+
+            return new Rectangle(originalX, originalY, originalWidth, originalHeight);
         }
 
         public Rectangle getLineSelection() {
@@ -367,16 +412,34 @@ class ImageLoaderApp extends JFrame {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             if (image != null) {
-                offsetX = (getWidth() - image.getWidth()) / 2;
-                offsetY = (getHeight() - image.getHeight()) / 2;
-                g.drawImage(image, offsetX, offsetY, this);
+                // Obliczanie przesunięcia i skalowania obrazu
+                double panelWidth = getWidth() - 2 * margin;
+                double panelHeight = getHeight() - 2 * margin;
+                double imageAspect = (double) image.getWidth() / image.getHeight();
+                double panelAspect = panelWidth / panelHeight;
 
+                if (imageAspect > panelAspect) {
+                    scaledWidth = (int) panelWidth;
+                    scaledHeight = (int) (panelWidth / imageAspect);
+                } else {
+                    scaledHeight = (int) panelHeight;
+                    scaledWidth = (int) (panelHeight * imageAspect);
+                }
+
+                offsetX = (getWidth() - scaledWidth) / 2;
+                offsetY = (getHeight() - scaledHeight) / 2;
+
+                // Rysowanie obrazu
+                g.drawImage(image, offsetX, offsetY, scaledWidth, scaledHeight, this);
+
+                // Rysowanie prostokątnego zaznaczenia w trybie kadrowania
                 if (cropMode && currentSelection != null) {
                     g.setColor(Color.RED);
                     Rectangle rect = currentSelection.toRectangle();
                     g.drawRect(rect.x, rect.y, rect.width, rect.height);
                 }
 
+                // Rysowanie linii w trybie kadrowania liniami
                 if (lineCropMode) {
                     g.setColor(Color.RED);
                     if (horizontalLine1 != null) {
@@ -394,7 +457,9 @@ class ImageLoaderApp extends JFrame {
                 }
             }
         }
+
     }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ImageLoaderApp::new);
