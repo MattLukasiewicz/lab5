@@ -6,40 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
 
-class Zaznaczenie {
-    //Przechowuje informacje o zaznaczeniu prostokątnym.
-    private int x;
-    private int y;
-    private int W;
-    private int H;
 
-    public Zaznaczenie(int x, int y, int W, int H) {
-        this.x = x;
-        this.y = y;
-        this.W = W;
-        this.H = H;
-    }
-
-    public int getX() {
-        return x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
-    public int getWidth() {
-        return W;
-    }
-
-    public int getHeight() {
-        return H;
-    }
-
-    public Rectangle toRectangle() {
-        return new Rectangle(x, y, W, H);
-    }
-}
 
 class ProgramKadrowanieObrazow extends JFrame {
     private BufferedImage loadedImage;
@@ -48,8 +15,8 @@ class ProgramKadrowanieObrazow extends JFrame {
     private JLabel etykietaKoloru;
     private JLabel modeLabel;
     private boolean cropMode = false;
-    private boolean lineCropMode = false; // Flaga trybu kadrowania liniami
-    private Zaznaczenie AktualneZaznaczenie; // Zaznaczenie do kadrowania
+    private boolean lineCropMode = false;
+    private Zaznaczenie AktualneZaznaczenie;
 
     public ProgramKadrowanieObrazow() {
 
