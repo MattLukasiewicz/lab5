@@ -9,14 +9,14 @@ import javax.imageio.ImageIO;
 class Zaznaczenie {
     private int x;
     private int y;
-    private int width;
-    private int height;
+    private int W;
+    private int H;
 
-    public Zaznaczenie(int x, int y, int width, int height) {
+    public Zaznaczenie(int x, int y, int W, int H) {
         this.x = x;
         this.y = y;
-        this.width = width;
-        this.height = height;
+        this.W = W;
+        this.H = H;
     }
 
     public int getX() {
@@ -28,19 +28,19 @@ class Zaznaczenie {
     }
 
     public int getWidth() {
-        return width;
+        return W;
     }
 
     public int getHeight() {
-        return height;
+        return H;
     }
 
     public Rectangle toRectangle() {
-        return new Rectangle(x, y, width, height);
+        return new Rectangle(x, y, W, H);
     }
 }
 
-class ImageLoaderApp extends JFrame {
+class ProgramKadrowanieObrazow extends JFrame {
     private BufferedImage loadedImage;
     private DrawPanel drawPanel;
     private JLabel positionLabel;
@@ -50,7 +50,7 @@ class ImageLoaderApp extends JFrame {
     private boolean lineCropMode = false; // Flaga trybu kadrowania liniami
     private Zaznaczenie currentSelection; // Zaznaczenie do kadrowania
 
-    public ImageLoaderApp() {
+    public ProgramKadrowanieObrazow() {
         setTitle("Image Loader");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -128,12 +128,34 @@ class ImageLoaderApp extends JFrame {
     }
 
     private void confirmAndExit() {
-        int result = JOptionPane.showConfirmDialog(this, "Czy na pewno chcesz wyjść?", "Wyjście",
-                JOptionPane.YES_NO_OPTION);
+        if (currentSelection != null) {
+            int saveSelection = JOptionPane.showConfirmDialog(
+                    this,
+                    "Masz zaznaczenie. Czy chcesz je zapisać przed wyjściem?",
+                    "Zapisz zaznaczenie",
+                    JOptionPane.YES_NO_CANCEL_OPTION
+            );
+
+            if (saveSelection == JOptionPane.YES_OPTION) {
+                saveSelection(); // Wywołanie metody zapisu zaznaczenia
+            } else if (saveSelection == JOptionPane.CANCEL_OPTION) {
+                return; // Przerwij zamykanie programu
+            }
+        }
+
+        // Potwierdzenie zamknięcia, jeśli nie było zaznaczenia lub użytkownik zdecydował
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                "Czy na pewno chcesz wyjść?",
+                "Wyjście",
+                JOptionPane.YES_NO_OPTION
+        );
+
         if (result == JOptionPane.YES_OPTION) {
             System.exit(0);
         }
     }
+
 
     private void openFileChooser() {
         JFileChooser fileChooser = new JFileChooser();
@@ -486,6 +508,6 @@ class ImageLoaderApp extends JFrame {
 
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(ImageLoaderApp::new);
+        SwingUtilities.invokeLater(ProgramKadrowanieObrazow::new);
     }
 }
