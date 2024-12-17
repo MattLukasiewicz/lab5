@@ -328,6 +328,30 @@ class ImageLoaderApp extends JFrame {
                     startPoint = null;
                 }
             });
+            // W klasie DrawPanel (dodajemy MouseMotionListener do śledzenia pozycji i koloru)
+            addMouseMotionListener(new MouseMotionAdapter() {
+                @Override
+                public void mouseMoved(MouseEvent e) {
+                    // Śledzenie pozycji kursora
+                    int mouseX = e.getX();
+                    int mouseY = e.getY();
+                    positionLabel.setText(String.format("Pozycja: (x: %d, y: %d)", mouseX, mouseY));
+
+                    // Wyświetlanie koloru, tylko jeśli obraz jest załadowany i kursor jest na obrazie
+                    if (image != null && mouseX >= offsetX && mouseX < offsetX + scaledWidth
+                            && mouseY >= offsetY && mouseY < offsetY + scaledHeight) {
+                        int imageX = (mouseX - offsetX) * image.getWidth() / scaledWidth;
+                        int imageY = (mouseY - offsetY) * image.getHeight() / scaledHeight;
+                        int rgb = image.getRGB(imageX, imageY);
+                        Color color = new Color(rgb);
+
+                        colorLabel.setText(String.format("Kolor: RGB(%d, %d, %d)", color.getRed(), color.getGreen(), color.getBlue()));
+                    } else {
+                        colorLabel.setText("Kolor: RGB(-, -, -)");
+                    }
+                }
+            });
+
 
             addMouseMotionListener(new MouseMotionAdapter() {
                 @Override
