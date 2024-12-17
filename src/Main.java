@@ -7,6 +7,7 @@ import java.io.File;
 import javax.imageio.ImageIO;
 
 class Zaznaczenie {
+    //Przechowuje informacje o zaznaczeniu prostokątnym.
     private int x;
     private int y;
     private int W;
@@ -43,15 +44,17 @@ class Zaznaczenie {
 class ProgramKadrowanieObrazow extends JFrame {
     private BufferedImage loadedImage;
     private DrawPanel drawPanel;
-    private JLabel positionLabel;
-    private JLabel colorLabel;
+    private JLabel etykietaPozycji;
+    private JLabel etykietaKoloru;
     private JLabel modeLabel;
     private boolean cropMode = false;
     private boolean lineCropMode = false; // Flaga trybu kadrowania liniami
-    private Zaznaczenie currentSelection; // Zaznaczenie do kadrowania
+    private Zaznaczenie AktualneZaznaczenie; // Zaznaczenie do kadrowania
 
     public ProgramKadrowanieObrazow() {
-        setTitle("Image Loader");
+
+        //Tworzenie
+        setTitle("ProgramKadrowanieObrazow");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -60,35 +63,35 @@ class ProgramKadrowanieObrazow extends JFrame {
         drawPanel = new DrawPanel();
         add(drawPanel, BorderLayout.CENTER);
 
-        JPanel infoPanel = createInfoPanel();
-        add(infoPanel, BorderLayout.SOUTH);
+        JPanel lnformacyjnyPanel = StworzlnformacyjnyPanel();
+        add(lnformacyjnyPanel, BorderLayout.SOUTH);
 
-        JPanel shortcutsPanel = createShortcutsPanel();
-        add(shortcutsPanel, BorderLayout.EAST);
+        JPanel PanelSkrotow = StworzPanelSkrotow();
+        add(PanelSkrotow, BorderLayout.EAST);
 
-        JPopupMenu popupMenu = createPopupMenu();
+        JPopupMenu popupMenu =  utworzMenuKontekstowe();
         drawPanel.setComponentPopupMenu(popupMenu);
 
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 switch (e.getKeyCode()) {
-                    case KeyEvent.VK_W -> openFileChooser(); // Wczytaj obraz
-                    case KeyEvent.VK_Q -> confirmAndExit(); // Wyjście
-                    case KeyEvent.VK_C -> disableCropMode(); // Wyłącz tryby kadrowania i usuń zaznaczenia
+                    case KeyEvent.VK_W -> WybieranieObrazu(); // Wczytaj obraz
+                    case KeyEvent.VK_Q -> PotwierdzWyjscie(); // Wyjście
+                    case KeyEvent.VK_C -> WylaczTrybkadrowania(); // Wyłącz tryby kadrowania i usuń zaznaczenia
                     case KeyEvent.VK_K -> {
                         if (lineCropMode) { // Jeśli tryb liniowy jest aktywny, wyłącz go
-                            disableCropMode();
+                            WylaczTrybkadrowania();
                         }
-                        enableCropMode(); // Włącz tryb prostokątny
+                        WlaczTrybkadrowaniaProstokatem(); // Włącz tryb prostokątny
                     }
                     case KeyEvent.VK_L -> {
                         if (cropMode) { // Jeśli tryb prostokątny jest aktywny, wyłącz go
-                            disableCropMode();
+                            WylaczTrybkadrowania();
                         }
-                        enableLineCropMode(); // Włącz tryb liniowy
+                        WlaczTrybkadrowaniaLiniami(); // Włącz tryb liniowy
                     }
-                    case KeyEvent.VK_Z -> saveSelection(); // Zapisz zaznaczenie
+                    case KeyEvent.VK_Z -> ZapiszZaznaczenie(); // Zapisz zaznaczenie
                 }
             }
         });
@@ -98,47 +101,51 @@ class ProgramKadrowanieObrazow extends JFrame {
         setVisible(true);
     }
 
-    private void enableCropMode() {
+    private void WlaczTrybkadrowaniaProstokatem() {
+        //Włączenie trybu prostokątnego zaznaczenia
         if (loadedImage != null) {
             cropMode = true;
             lineCropMode = false;
             modeLabel.setText("Tryb kadrowania (zaznaczenie prostokątem)");
         } else {
-            showNoImageError();
+            BladBrakuObrazu();
         }
     }
 
-    private void enableLineCropMode() {
+    private void WlaczTrybkadrowaniaLiniami() {
+        //Włączenie trybu kadrowania liniowego
         if (loadedImage != null) {
             lineCropMode = true;
             cropMode = false;
-            modeLabel.setText("Tryb kadrowania (cztery linie)");
-            drawPanel.initializeLines();
+            modeLabel.setText("Tryb kadrowania (Liniami)");
+            drawPanel.InicjowanieLinii();
         } else {
-            showNoImageError();
+            BladBrakuObrazu();
         }
     }
 
-    private void disableCropMode() {
+    private void WylaczTrybkadrowania() {
+        //Wyłączenie trybów kadrowania
         cropMode = false;
         lineCropMode = false;
         modeLabel.setText("Tryb kadrowania wyłączony");
-        drawPanel.clearSelection();
-        currentSelection = null;
+        drawPanel.WyczyscZaznaczenie();
+        AktualneZaznaczenie = null;
     }
 
-    private void confirmAndExit() {
-        if (currentSelection != null) {
-            int saveSelection = JOptionPane.showConfirmDialog(
+    private void PotwierdzWyjscie() {
+        //Zamykanie programu z pytaniem o zapis zaznaczenia
+        if (AktualneZaznaczenie != null) {
+            int ZapiszZaznaczenie = JOptionPane.showConfirmDialog(
                     this,
                     "Masz zaznaczenie. Czy chcesz je zapisać przed wyjściem?",
                     "Zapisz zaznaczenie",
                     JOptionPane.YES_NO_CANCEL_OPTION
             );
 
-            if (saveSelection == JOptionPane.YES_OPTION) {
-                saveSelection(); // Wywołanie metody zapisu zaznaczenia
-            } else if (saveSelection == JOptionPane.CANCEL_OPTION) {
+            if (ZapiszZaznaczenie == JOptionPane.YES_OPTION) {
+                ZapiszZaznaczenie(); // Wywołanie metody zapisu zaznaczenia
+            } else if (ZapiszZaznaczenie == JOptionPane.CANCEL_OPTION) {
                 return; // Przerwij zamykanie programu
             }
         }
@@ -157,38 +164,40 @@ class ProgramKadrowanieObrazow extends JFrame {
     }
 
 
-    private void openFileChooser() {
+    private void WybieranieObrazu() {
+        //Wczytywanie obrazu
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Wybierz obrazek");
+        fileChooser.setDialogTitle("Wybierz obraz");
         int result = fileChooser.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
             try {
                 loadedImage = ImageIO.read(selectedFile);
                 drawPanel.setImage(loadedImage);
-                disableCropMode();
+                WylaczTrybkadrowania();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Nie można wczytać pliku", "Błąd", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Nie można wczytac pliku", "Blad", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private void saveSelection() {
+    private void ZapiszZaznaczenie() {
+        //Pobiera zaznaczenie prostokątne lub liniowe z panelu rysowania
         if (lineCropMode) {
             Rectangle lineSelection = drawPanel.getLineSelection();
             if (lineSelection != null) {
-                currentSelection = new Zaznaczenie(
+                AktualneZaznaczenie = new Zaznaczenie(
                         lineSelection.x, lineSelection.y,
                         lineSelection.width, lineSelection.height
                 );
             }
         }
 
-        if (currentSelection != null && loadedImage != null) {
+        if (AktualneZaznaczenie != null && loadedImage != null) {
             try {
                 // Skalowanie zaznaczenia do oryginalnego rozmiaru obrazu
-                Rectangle scaledSelection = currentSelection.toRectangle();
-                Rectangle originalSelection = drawPanel.scaleToOriginal(scaledSelection);
+                Rectangle scaledSelection = AktualneZaznaczenie.toRectangle();
+                Rectangle originalSelection = drawPanel.SkalowanieDoOrginalu(scaledSelection);
 
                 int x = originalSelection.x;
                 int y = originalSelection.y;
@@ -202,7 +211,7 @@ class ProgramKadrowanieObrazow extends JFrame {
 
                 BufferedImage croppedImage = loadedImage.getSubimage(x, y, width, height);
 
-                // Tworzenie JFileChooser w trybie zapisu
+                // Wybor gdzie zapisac
                 JFileChooser fileChooser = new JFileChooser();
                 fileChooser.setDialogTitle("Zapisz zaznaczenie jako...");
                 fileChooser.setSelectedFile(new File("zaznaczenie.png")); // Domyślna nazwa pliku
@@ -230,90 +239,91 @@ class ProgramKadrowanieObrazow extends JFrame {
 
 
 
-    private void showNoImageError() {
+    private void BladBrakuObrazu() {
         JOptionPane.showMessageDialog(this, "Brak załadowanego obrazu!", "Błąd", JOptionPane.WARNING_MESSAGE);
     }
 
-    private JPanel createInfoPanel() {
-        JPanel infoPanel = new JPanel();
-        infoPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-        infoPanel.setBorder(BorderFactory.createTitledBorder(
+    private JPanel StworzlnformacyjnyPanel() {
+        JPanel lnformacyjnyPanel = new JPanel();
+        lnformacyjnyPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        lnformacyjnyPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.GRAY),
-                "Informacje o kursore i trybie",
+                "Informacje o kursorze i trybie",
                 TitledBorder.LEFT,
                 TitledBorder.TOP));
 
-        positionLabel = new JLabel("Pozycja: (x: -, y: -)");
-        colorLabel = new JLabel("Kolor: RGB(-, -, -)");
+        etykietaPozycji = new JLabel("Pozycja: (x: -, y: -)");
+        etykietaKoloru = new JLabel("Kolor: RGB(-, -, -)");
         modeLabel = new JLabel("Tryb kadrowania wyłączony");
 
-        infoPanel.add(positionLabel);
-        infoPanel.add(Box.createRigidArea(new Dimension(20, 0)));
-        infoPanel.add(colorLabel);
-        infoPanel.add(Box.createRigidArea(new Dimension(20, 0)));
-        infoPanel.add(modeLabel);
+        lnformacyjnyPanel.add(etykietaPozycji);
+        lnformacyjnyPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        lnformacyjnyPanel.add(etykietaKoloru);
+        lnformacyjnyPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        lnformacyjnyPanel.add(modeLabel);
 
-        return infoPanel;
+        return lnformacyjnyPanel;
     }
 
-    private JPanel createShortcutsPanel() {
-        JPanel shortcutsPanel = new JPanel();
-        shortcutsPanel.setLayout(new BoxLayout(shortcutsPanel, BoxLayout.Y_AXIS));
-        shortcutsPanel.setBorder(BorderFactory.createTitledBorder(
+    private JPanel StworzPanelSkrotow() {
+        JPanel PanelSkrotow = new JPanel();
+        PanelSkrotow.setLayout(new BoxLayout(PanelSkrotow, BoxLayout.Y_AXIS));
+        PanelSkrotow.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.GRAY),
                 "Skróty klawiaturowe",
                 TitledBorder.LEFT,
                 TitledBorder.TOP));
 
-        shortcutsPanel.add(new JLabel("W - Wczytaj obraz"));
-        shortcutsPanel.add(new JLabel("K - Tryb kadrowania (prostokąt)"));
-        shortcutsPanel.add(new JLabel("L - Tryb kadrowania (linie)"));
-        shortcutsPanel.add(new JLabel("C - Wyłącz tryb kadrowania"));
-        shortcutsPanel.add(new JLabel("Z - Zapisz zaznaczenie"));
-        shortcutsPanel.add(new JLabel("Q - Wyjście"));
+        PanelSkrotow.add(new JLabel("W - Wczytaj obraz"));
+        PanelSkrotow.add(new JLabel("K - Tryb kadrowania (prostokąt)"));
+        PanelSkrotow.add(new JLabel("L - Tryb kadrowania (linie)"));
+        PanelSkrotow.add(new JLabel("C - Wyłącz tryb kadrowania"));
+        PanelSkrotow.add(new JLabel("Z - Zapisz zaznaczenie"));
+        PanelSkrotow.add(new JLabel("Q - Wyjście"));
 
-        return shortcutsPanel;
+        return PanelSkrotow;
     }
 
-    private JPopupMenu createPopupMenu() {
-        JPopupMenu popupMenu = new JPopupMenu();
+    private JPopupMenu utworzMenuKontekstowe() {
+        JPopupMenu menuKontekstowe = new JPopupMenu();
 
-        JMenuItem loadMenuItem = new JMenuItem("Wczytaj obraz (W)");
-        loadMenuItem.addActionListener(e -> openFileChooser());
-        popupMenu.add(loadMenuItem);
+        JMenuItem opcjaWczytajObraz = new JMenuItem("Wczytaj obraz (W)");
+        opcjaWczytajObraz.addActionListener(e -> WybieranieObrazu());
+        menuKontekstowe.add(opcjaWczytajObraz);
 
-        JMenuItem cropModeMenuItem = new JMenuItem("Tryb kadrowania (prostokąt) (K)");
-        cropModeMenuItem.addActionListener(e -> enableCropMode());
-        popupMenu.add(cropModeMenuItem);
+        JMenuItem opcjaKadrowanieProstokatem = new JMenuItem("Tryb kadrowania (prostokąt) (K)");
+        opcjaKadrowanieProstokatem.addActionListener(e -> WlaczTrybkadrowaniaProstokatem());
+        menuKontekstowe.add(opcjaKadrowanieProstokatem);
 
-        JMenuItem lineCropModeMenuItem = new JMenuItem("Tryb kadrowania (linie) (L)");
-        lineCropModeMenuItem.addActionListener(e -> enableLineCropMode());
-        popupMenu.add(lineCropModeMenuItem);
+        JMenuItem opcjaKadrowanieLiniami = new JMenuItem("Tryb kadrowania (linie) (L)");
+        opcjaKadrowanieLiniami.addActionListener(e -> WlaczTrybkadrowaniaLiniami());
+        menuKontekstowe.add(opcjaKadrowanieLiniami);
 
-        JMenuItem disableCropMenuItem = new JMenuItem("Wyłącz tryb kadrowania (C)");
-        disableCropMenuItem.addActionListener(e -> disableCropMode());
-        popupMenu.add(disableCropMenuItem);
+        JMenuItem opcjaWylaczKadrowanie = new JMenuItem("Wyłącz tryb kadrowania (C)");
+        opcjaWylaczKadrowanie.addActionListener(e -> WylaczTrybkadrowania());
+        menuKontekstowe.add(opcjaWylaczKadrowanie);
 
-        JMenuItem saveSelectionMenuItem = new JMenuItem("Zapisz zaznaczenie (Z)");
-        saveSelectionMenuItem.addActionListener(e -> saveSelection());
-        popupMenu.add(saveSelectionMenuItem);
+        JMenuItem opcjaZapiszZaznaczenie = new JMenuItem("Zapisz zaznaczenie (Z)");
+        opcjaZapiszZaznaczenie.addActionListener(e -> ZapiszZaznaczenie());
+        menuKontekstowe.add(opcjaZapiszZaznaczenie);
 
-        JMenuItem exitMenuItem = new JMenuItem("Wyjście (Q)");
-        exitMenuItem.addActionListener(e -> confirmAndExit());
-        popupMenu.add(exitMenuItem);
+        JMenuItem opcjaWyjscie = new JMenuItem("Wyjście (Q)");
+        opcjaWyjscie.addActionListener(e -> PotwierdzWyjscie());
+        menuKontekstowe.add(opcjaWyjscie);
 
-        return popupMenu;
+        return menuKontekstowe;
     }
+
 
     private class DrawPanel extends JPanel {
         private BufferedImage image;
-        private int offsetX, offsetY;
-        private int scaledWidth, scaledHeight;
-        private Point startPoint, currentPoint;
-        private Rectangle horizontalLine1, horizontalLine2, verticalLine1, verticalLine2;
-        private boolean draggingLine;
-        private Rectangle draggedLine;
-        private final int margin = 10; // Stały margines wokół obrazu
+        private int przesuniecieX, przesuniecieY;
+        private int skalowanieSzerokosci, skalowanieWysokosci;
+        private Point punktStartu, aktualnyPunkt;
+        private Rectangle liniaPozioma1, liniaPozioma2, liniaPionowa1, liniaPionowa2;
+        private boolean przesuwanieLinii;
+        private Rectangle przesuwanaLinia;
+        private final int margines = 10; // Stały margineses wokół obrazu
 
         public DrawPanel() {
             addMouseListener(new MouseAdapter() {
@@ -322,22 +332,22 @@ class ProgramKadrowanieObrazow extends JFrame {
                     if (image == null) return;
 
                     Point clickPoint = e.getPoint();
-                    boolean isInsideImage = clickPoint.x >= offsetX && clickPoint.x < offsetX + scaledWidth
-                            && clickPoint.y >= offsetY && clickPoint.y < offsetY + scaledHeight;
+                    boolean isInsideImage = clickPoint.x >= przesuniecieX && clickPoint.x < przesuniecieX + skalowanieSzerokosci
+                            && clickPoint.y >= przesuniecieY && clickPoint.y < przesuniecieY + skalowanieWysokosci;
 
                     if (cropMode) {
                         if (isInsideImage) {
-                            startPoint = clickPoint;
-                            currentSelection = null;
+                            punktStartu = clickPoint;
+                            AktualneZaznaczenie = null;
                         } else {
-                            startPoint = null;
+                            punktStartu = null;
                         }
                     } else if (lineCropMode) {
-                        draggingLine = false;
-                        for (Rectangle line : new Rectangle[]{horizontalLine1, horizontalLine2, verticalLine1, verticalLine2}) {
+                        przesuwanieLinii = false;
+                        for (Rectangle line : new Rectangle[]{liniaPozioma1, liniaPozioma2, liniaPionowa1, liniaPionowa2}) {
                             if (line != null && line.contains(clickPoint)) {
-                                draggingLine = true;
-                                draggedLine = line;
+                                przesuwanieLinii = true;
+                                przesuwanaLinia = line;
                                 break;
                             }
                         }
@@ -346,8 +356,8 @@ class ProgramKadrowanieObrazow extends JFrame {
 
                 @Override
                 public void mouseReleased(MouseEvent e) {
-                    draggingLine = false;
-                    startPoint = null;
+                    przesuwanieLinii = false;
+                    punktStartu = null;
                 }
             });
             // W klasie DrawPanel (dodajemy MouseMotionListener do śledzenia pozycji i koloru)
@@ -357,19 +367,19 @@ class ProgramKadrowanieObrazow extends JFrame {
                     // Śledzenie pozycji kursora
                     int mouseX = e.getX();
                     int mouseY = e.getY();
-                    positionLabel.setText(String.format("Pozycja: (x: %d, y: %d)", mouseX, mouseY));
+                    etykietaPozycji.setText(String.format("Pozycja: (x: %d, y: %d)", mouseX, mouseY));
 
                     // Wyświetlanie koloru, tylko jeśli obraz jest załadowany i kursor jest na obrazie
-                    if (image != null && mouseX >= offsetX && mouseX < offsetX + scaledWidth
-                            && mouseY >= offsetY && mouseY < offsetY + scaledHeight) {
-                        int imageX = (mouseX - offsetX) * image.getWidth() / scaledWidth;
-                        int imageY = (mouseY - offsetY) * image.getHeight() / scaledHeight;
+                    if (image != null && mouseX >= przesuniecieX && mouseX < przesuniecieX + skalowanieSzerokosci
+                            && mouseY >= przesuniecieY && mouseY < przesuniecieY + skalowanieWysokosci) {
+                        int imageX = (mouseX - przesuniecieX) * image.getWidth() / skalowanieSzerokosci;
+                        int imageY = (mouseY - przesuniecieY) * image.getHeight() / skalowanieWysokosci;
                         int rgb = image.getRGB(imageX, imageY);
                         Color color = new Color(rgb);
 
-                        colorLabel.setText(String.format("Kolor: RGB(%d, %d, %d)", color.getRed(), color.getGreen(), color.getBlue()));
+                        etykietaKoloru.setText(String.format("Kolor: RGB(%d, %d, %d)", color.getRed(), color.getGreen(), color.getBlue()));
                     } else {
-                        colorLabel.setText("Kolor: RGB(-, -, -)");
+                        etykietaKoloru.setText("Kolor: RGB(-, -, -)");
                     }
                 }
             });
@@ -378,28 +388,28 @@ class ProgramKadrowanieObrazow extends JFrame {
             addMouseMotionListener(new MouseMotionAdapter() {
                 @Override
                 public void mouseDragged(MouseEvent e) {
-                    if (cropMode && startPoint != null) {
-                        currentPoint = e.getPoint();
+                    if (cropMode && punktStartu != null) {
+                        aktualnyPunkt = e.getPoint();
 
-                        int x1 = Math.max(offsetX, Math.min(startPoint.x, currentPoint.x));
-                        int y1 = Math.max(offsetY, Math.min(startPoint.y, currentPoint.y));
-                        int x2 = Math.min(offsetX + scaledWidth, Math.max(startPoint.x, currentPoint.x));
-                        int y2 = Math.min(offsetY + scaledHeight, Math.max(startPoint.y, currentPoint.y));
+                        int x1 = Math.max(przesuniecieX, Math.min(punktStartu.x, aktualnyPunkt.x));
+                        int y1 = Math.max(przesuniecieY, Math.min(punktStartu.y, aktualnyPunkt.y));
+                        int x2 = Math.min(przesuniecieX + skalowanieSzerokosci, Math.max(punktStartu.x, aktualnyPunkt.x));
+                        int y2 = Math.min(przesuniecieY + skalowanieWysokosci, Math.max(punktStartu.y, aktualnyPunkt.y));
 
-                        currentSelection = new Zaznaczenie(x1, y1, x2 - x1, y2 - y1);
+                        AktualneZaznaczenie = new Zaznaczenie(x1, y1, x2 - x1, y2 - y1);
                         repaint();
-                    } else if (lineCropMode && draggingLine) {
-                        int dx = e.getX() - draggedLine.x;
-                        int dy = e.getY() - draggedLine.y;
+                    } else if (lineCropMode && przesuwanieLinii) {
+                        int dx = e.getX() - przesuwanaLinia.x;
+                        int dy = e.getY() - przesuwanaLinia.y;
 
-                        if (draggedLine == horizontalLine1) {
-                            horizontalLine1.y = Math.max(offsetY, Math.min(horizontalLine2.y - 10, horizontalLine1.y + dy));
-                        } else if (draggedLine == horizontalLine2) {
-                            horizontalLine2.y = Math.max(horizontalLine1.y + 10, Math.min(offsetY + scaledHeight, horizontalLine2.y + dy));
-                        } else if (draggedLine == verticalLine1) {
-                            verticalLine1.x = Math.max(offsetX, Math.min(verticalLine2.x - 10, verticalLine1.x + dx));
-                        } else if (draggedLine == verticalLine2) {
-                            verticalLine2.x = Math.max(verticalLine1.x + 10, Math.min(offsetX + scaledWidth, verticalLine2.x + dx));
+                        if (przesuwanaLinia == liniaPozioma1) {
+                            liniaPozioma1.y = Math.max(przesuniecieY, Math.min(liniaPozioma2.y - 10, liniaPozioma1.y + dy));
+                        } else if (przesuwanaLinia == liniaPozioma2) {
+                            liniaPozioma2.y = Math.max(liniaPozioma1.y + 10, Math.min(przesuniecieY + skalowanieWysokosci, liniaPozioma2.y + dy));
+                        } else if (przesuwanaLinia == liniaPionowa1) {
+                            liniaPionowa1.x = Math.max(przesuniecieX, Math.min(liniaPionowa2.x - 10, liniaPionowa1.x + dx));
+                        } else if (przesuwanaLinia == liniaPionowa2) {
+                            liniaPionowa2.x = Math.max(liniaPionowa1.x + 10, Math.min(przesuniecieX + skalowanieSzerokosci, liniaPionowa2.x + dx));
                         }
 
                         repaint();
@@ -408,21 +418,21 @@ class ProgramKadrowanieObrazow extends JFrame {
             });
         }
 
-        public void initializeLines() {
+        public void InicjowanieLinii() {
             if (image != null) {
-                horizontalLine1 = new Rectangle(offsetX, offsetY + scaledHeight / 4, scaledWidth, 5);
-                horizontalLine2 = new Rectangle(offsetX, offsetY + 3 * scaledHeight / 4, scaledWidth, 5);
-                verticalLine1 = new Rectangle(offsetX + scaledWidth / 4, offsetY, 5, scaledHeight);
-                verticalLine2 = new Rectangle(offsetX + 3 * scaledWidth / 4, offsetY, 5, scaledHeight);
+                liniaPozioma1 = new Rectangle(przesuniecieX, przesuniecieY + skalowanieWysokosci / 4, skalowanieSzerokosci, 5);
+                liniaPozioma2 = new Rectangle(przesuniecieX, przesuniecieY + 3 * skalowanieWysokosci / 4, skalowanieSzerokosci, 5);
+                liniaPionowa1 = new Rectangle(przesuniecieX + skalowanieSzerokosci / 4, przesuniecieY, 5, skalowanieWysokosci);
+                liniaPionowa2 = new Rectangle(przesuniecieX + 3 * skalowanieSzerokosci / 4, przesuniecieY, 5, skalowanieWysokosci);
                 repaint();
             }
         }
-        private Rectangle scaleToOriginal(Rectangle scaledRect) {
-            double scaleX = (double) image.getWidth() / scaledWidth;
-            double scaleY = (double) image.getHeight() / scaledHeight;
+        private Rectangle SkalowanieDoOrginalu(Rectangle scaledRect) {
+            double scaleX = (double) image.getWidth() / skalowanieSzerokosci;
+            double scaleY = (double) image.getHeight() / skalowanieWysokosci;
 
-            int originalX = (int) ((scaledRect.x - offsetX) * scaleX);
-            int originalY = (int) ((scaledRect.y - offsetY) * scaleY);
+            int originalX = (int) ((scaledRect.x - przesuniecieX) * scaleX);
+            int originalY = (int) ((scaledRect.y - przesuniecieY) * scaleY);
             int originalWidth = (int) (scaledRect.width * scaleX);
             int originalHeight = (int) (scaledRect.height * scaleY);
 
@@ -430,22 +440,22 @@ class ProgramKadrowanieObrazow extends JFrame {
         }
 
         public Rectangle getLineSelection() {
-            if (horizontalLine1 != null && horizontalLine2 != null && verticalLine1 != null && verticalLine2 != null) {
-                int x = verticalLine1.x;
-                int y = horizontalLine1.y;
-                int width = verticalLine2.x - verticalLine1.x;
-                int height = horizontalLine2.y - horizontalLine1.y;
+            if (liniaPozioma1 != null && liniaPozioma2 != null && liniaPionowa1 != null && liniaPionowa2 != null) {
+                int x = liniaPionowa1.x;
+                int y = liniaPozioma1.y;
+                int width = liniaPionowa2.x - liniaPionowa1.x;
+                int height = liniaPozioma2.y - liniaPozioma1.y;
                 return new Rectangle(x, y, width, height);
             }
             return null;
         }
 
-        public void clearSelection() {
-            currentSelection = null;
-            horizontalLine1 = null;
-            horizontalLine2 = null;
-            verticalLine1 = null;
-            verticalLine2 = null;
+        public void WyczyscZaznaczenie() {
+            AktualneZaznaczenie = null;
+            liniaPozioma1 = null;
+            liniaPozioma2 = null;
+            liniaPionowa1 = null;
+            liniaPionowa2 = null;
             repaint();
         }
 
@@ -459,46 +469,46 @@ class ProgramKadrowanieObrazow extends JFrame {
             super.paintComponent(g);
             if (image != null) {
                 // Obliczanie przesunięcia i skalowania obrazu
-                double panelWidth = getWidth() - 2 * margin;
-                double panelHeight = getHeight() - 2 * margin;
+                double panelWidth = getWidth() - 2 * margines;
+                double panelHeight = getHeight() - 2 * margines;
                 double imageAspect = (double) image.getWidth() / image.getHeight();
                 double panelAspect = panelWidth / panelHeight;
 
                 if (imageAspect > panelAspect) {
-                    scaledWidth = (int) panelWidth;
-                    scaledHeight = (int) (panelWidth / imageAspect);
+                    skalowanieSzerokosci = (int) panelWidth;
+                    skalowanieWysokosci = (int) (panelWidth / imageAspect);
                 } else {
-                    scaledHeight = (int) panelHeight;
-                    scaledWidth = (int) (panelHeight * imageAspect);
+                    skalowanieWysokosci = (int) panelHeight;
+                    skalowanieSzerokosci = (int) (panelHeight * imageAspect);
                 }
 
-                offsetX = (getWidth() - scaledWidth) / 2;
-                offsetY = (getHeight() - scaledHeight) / 2;
+                przesuniecieX = (getWidth() - skalowanieSzerokosci) / 2;
+                przesuniecieY = (getHeight() - skalowanieWysokosci) / 2;
 
                 // Rysowanie obrazu
-                g.drawImage(image, offsetX, offsetY, scaledWidth, scaledHeight, this);
+                g.drawImage(image, przesuniecieX, przesuniecieY, skalowanieSzerokosci, skalowanieWysokosci, this);
 
                 // Rysowanie prostokątnego zaznaczenia w trybie kadrowania
-                if (cropMode && currentSelection != null) {
+                if (cropMode && AktualneZaznaczenie != null) {
                     g.setColor(Color.RED);
-                    Rectangle rect = currentSelection.toRectangle();
+                    Rectangle rect = AktualneZaznaczenie.toRectangle();
                     g.drawRect(rect.x, rect.y, rect.width, rect.height);
                 }
 
                 // Rysowanie linii w trybie kadrowania liniami
                 if (lineCropMode) {
                     g.setColor(Color.RED);
-                    if (horizontalLine1 != null) {
-                        g.fillRect(horizontalLine1.x, horizontalLine1.y, horizontalLine1.width, horizontalLine1.height);
+                    if (liniaPozioma1 != null) {
+                        g.fillRect(liniaPozioma1.x, liniaPozioma1.y, liniaPozioma1.width, liniaPozioma1.height);
                     }
-                    if (horizontalLine2 != null) {
-                        g.fillRect(horizontalLine2.x, horizontalLine2.y, horizontalLine2.width, horizontalLine2.height);
+                    if (liniaPozioma2 != null) {
+                        g.fillRect(liniaPozioma2.x, liniaPozioma2.y, liniaPozioma2.width, liniaPozioma2.height);
                     }
-                    if (verticalLine1 != null) {
-                        g.fillRect(verticalLine1.x, verticalLine1.y, verticalLine1.width, verticalLine1.height);
+                    if (liniaPionowa1 != null) {
+                        g.fillRect(liniaPionowa1.x, liniaPionowa1.y, liniaPionowa1.width, liniaPionowa1.height);
                     }
-                    if (verticalLine2 != null) {
-                        g.fillRect(verticalLine2.x, verticalLine2.y, verticalLine2.width, verticalLine2.height);
+                    if (liniaPionowa2 != null) {
+                        g.fillRect(liniaPionowa2.x, liniaPionowa2.y, liniaPionowa2.width, liniaPionowa2.height);
                     }
                 }
             }
