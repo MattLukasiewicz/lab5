@@ -101,8 +101,8 @@ class ProgramKadrowanieObrazow extends JFrame {
     }
 
     private void PotwierdzWyjscie() {
-        //Zamykanie programu z pytaniem o zapis zaznaczenia
-        if (AktualneZaznaczenie != null) {
+        // Sprawdzenie obecności zaznaczenia w trybie prostokątnym lub liniowym
+        if (AktualneZaznaczenie != null || (lineCropMode && drawPanel.getLineSelection() != null)) {
             int ZapiszZaznaczenie = JOptionPane.showConfirmDialog(
                     this,
                     "Masz zaznaczenie. Czy chcesz je zapisać przed wyjściem?",
@@ -124,11 +124,11 @@ class ProgramKadrowanieObrazow extends JFrame {
                 "Wyjście",
                 JOptionPane.YES_NO_OPTION
         );
-
         if (result == JOptionPane.YES_OPTION) {
             System.exit(0);
         }
     }
+
 
 
     private void WybieranieObrazu() {
@@ -149,7 +149,7 @@ class ProgramKadrowanieObrazow extends JFrame {
     }
 
     private void ZapiszZaznaczenie() {
-        //Pobiera zaznaczenie prostokątne lub liniowe z panelu rysowania
+        // Sprawdzenie i pobranie zaznaczenia w trybie liniowym
         if (lineCropMode) {
             Rectangle lineSelection = drawPanel.getLineSelection();
             if (lineSelection != null) {
@@ -160,9 +160,9 @@ class ProgramKadrowanieObrazow extends JFrame {
             }
         }
 
+        // Dalej działa to samo co w oryginalnej wersji
         if (AktualneZaznaczenie != null && loadedImage != null) {
             try {
-                // Skalowanie zaznaczenia do oryginalnego rozmiaru obrazu
                 Rectangle scaledSelection = AktualneZaznaczenie.toRectangle();
                 Rectangle originalSelection = drawPanel.SkalowanieDoOrginalu(scaledSelection);
 
@@ -178,21 +178,17 @@ class ProgramKadrowanieObrazow extends JFrame {
 
                 BufferedImage croppedImage = loadedImage.getSubimage(x, y, width, height);
 
-                // Wybor gdzie zapisac
                 JFileChooser fileChooser = new JFileChooser();
                 fileChooser.setDialogTitle("Zapisz zaznaczenie jako...");
-                fileChooser.setSelectedFile(new File("zaznaczenie.png")); // Domyślna nazwa pliku
+                fileChooser.setSelectedFile(new File("zaznaczenie.png"));
 
                 int userSelection = fileChooser.showSaveDialog(this);
                 if (userSelection == JFileChooser.APPROVE_OPTION) {
                     File fileToSave = fileChooser.getSelectedFile();
-
-                    // Dodanie rozszerzenia .png, jeśli brak
                     if (!fileToSave.getName().toLowerCase().endsWith(".png")) {
                         fileToSave = new File(fileToSave.getAbsolutePath() + ".png");
                     }
 
-                    // Zapis obrazu
                     ImageIO.write(croppedImage, "png", fileToSave);
                     JOptionPane.showMessageDialog(this, "Zaznaczenie zapisane jako: " + fileToSave.getAbsolutePath());
                 }
@@ -203,6 +199,7 @@ class ProgramKadrowanieObrazow extends JFrame {
             JOptionPane.showMessageDialog(this, "Nie ma zaznaczenia do zapisania!", "Informacja", JOptionPane.INFORMATION_MESSAGE);
         }
     }
+
 
 
 
