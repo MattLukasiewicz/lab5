@@ -350,6 +350,15 @@ class ProgramKadrowanieObrazow extends JFrame {
                     }
                 }
             });
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    // Resetowanie etykiet po opuszczeniu panelu rysowania
+                    etykietaPozycji.setText("Pozycja: (x: -, y: -)");
+                    etykietaKoloru.setText("Kolor: RGB(-, -, -)");
+                }
+            });
+
 
 
             addMouseMotionListener(new MouseMotionAdapter() {
@@ -384,6 +393,7 @@ class ProgramKadrowanieObrazow extends JFrame {
                 }
             });
         }
+
 
         public void InicjowanieLinii() {
             if (image != null) {
